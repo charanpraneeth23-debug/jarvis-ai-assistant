@@ -3,8 +3,9 @@ from __future__ import annotations
 import datetime
 import random
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from backend.ai.providers import AIProviderFactory
 from backend.config import settings
 from backend.search_engine import SearchEngine
 from backend.system_controller import SystemController
@@ -20,11 +21,15 @@ class AssistantResponse:
 
 
 class JarvisAssistant:
-    def __init__(self) -> None:
+    def __init__(self, ai_provider: Optional[str] = None) -> None:
         self.system = SystemController()
         self.voice = VoiceManager()
         self.search = SearchEngine()
+        self.ai_provider = AIProviderFactory.create(ai_provider or settings.llm_provider)
         self.name = settings.assistant_name
+        self.ai_mode = (ai_provider or settings.llm_provider).lower() == "openai"
+        self.conversation_history: list[str] = []
+
         self.intent_handlers = {
             "greeting": self._handle_greeting,
             "time": self._handle_time,
@@ -39,8 +44,18 @@ class JarvisAssistant:
         if not user_input:
             return AssistantResponse(False, "Please provide a command.", "empty")
 
+        self.conversation_history.append(f"User: {user_input}")
+
         intent = self._detect_intent(user_input)
-        return self.intent_handlers.get(intent, self.intent_handlers["default"])(user_input)
+        handler_result = self.intent_handlers.get(intent, self.intent_handlers["default"])(user_input)
+
+        if self.ai_mode and intent == "default":
+            ai_response = self.ai_provider.generate(user_input, context=" ".join(self.conversation_history[-5:]))
+            self.conversation_history.append(f"Jarvis: {ai_response}")
+            return AssistantResponse(True, ai_response, "ai_reply", {"input": user_input})
+
+        self.conversation_history.append(f"Jarvis: {handler_result.message}")
+        return handler_result
 
     def _detect_intent(self, text: str) -> str:
         lower = text.lower()
@@ -105,6 +120,9 @@ class JarvisAssistant:
         return AssistantResponse(True, "Weather support is ready to be connected to an API or data source.", "weather")
 
     def _handle_default(self, text: str) -> AssistantResponse:
+        if self.ai_mode:
+            ai_response = self.ai_provider.generate(text)
+            return AssistantResponse(True, ai_response, "ai_reply", {"input": text})
         return AssistantResponse(
             True,
             "I heard you. I can help with system control, voice commands, searches, and AI tasks.",
@@ -121,10 +139,28 @@ class JarvisAssistant:
             "metadata": result.metadata,
         }
 
+    def listen_and_respond(self) -> Optional[Dict[str, Any]]:
+        """Listen for voice input and process it."""
+        if not self.voice.is_available():
+            return None
+        text = self.voice.listen_once()
+        if text:
+            return self.process_command(text)
+        return None
+
+    def speak_response(self, message: str) -> bool:
+        """Speak the response message."""
+        return self.voice.speak(message)
+
 
 def run_cli() -> None:
-    assistant = JarvisAssistant()
-    print(f"{settings.assistant_name} is ready. Type 'exit' to quit.")
+    import sys
+
+    ai_mode = "--ai" in sys.argv
+    assistant = JarvisAssistant(ai_provider="openai" if ai_mode else "local")
+    mode_name = "AI Mode (ChatGPT)" if ai_mode else "Local Mode"
+    print(f"{assistant.name} is ready in {mode_name}. Type 'exit' to quit.")
+    print("Commands: 'hello', 'time', 'search <query>', 'open <app>', or ask anything.")
     while True:
         user_input = input("You: ")
         if user_input.strip().lower() in {"exit", "quit"}:

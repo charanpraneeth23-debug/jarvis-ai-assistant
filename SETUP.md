@@ -1,10 +1,11 @@
-# Jarvis AI Assistant - Setup and Usage Guide
+# Jarvis AI Assistant - Complete Setup and Usage Guide
 
 ## Prerequisites
 
 - Python 3.9+
 - Windows 10/11 (or Linux/macOS with adjustments)
 - Microphone (for voice features)
+- Internet connection (for ChatGPT and search)
 
 ## Installation
 
@@ -26,14 +27,25 @@ Copy `.env.example` to `.env`:
 cp .env.example .env
 ```
 
-Edit `.env` and add your search credentials:
+Edit `.env` and add your credentials:
 
 ```
-GOOGLE_API_KEY=your-api-key
-GOOGLE_SEARCH_ENGINE_ID=your-search-engine-id
+# For ChatGPT mode (optional but recommended)
+OPENAI_API_KEY=sk-...
+
+# For Google Search (optional)
+GOOGLE_API_KEY=...
+GOOGLE_SEARCH_ENGINE_ID=...
 ```
 
-## Getting Search Credentials
+## Getting API Credentials
+
+### OpenAI API Key (ChatGPT)
+
+1. Go to [OpenAI Platform](https://platform.openai.com/account/api-keys)
+2. Sign up or log in
+3. Create a new API key
+4. Copy the key to `.env` as `OPENAI_API_KEY`
 
 ### Google Custom Search API
 
@@ -45,7 +57,7 @@ GOOGLE_SEARCH_ENGINE_ID=your-search-engine-id
 6. Create a new search engine
 7. Copy the Search Engine ID
 
-### Alternative: Wikipedia Search (No API Key Needed)
+### Wikipedia Search (Free - No API Key)
 
 Wikipedia search works out of the box without credentials.
 
@@ -73,57 +85,137 @@ In a second terminal:
 python desktop/main.py
 ```
 
-## Testing Commands
+## Features
 
-### Text-Based Commands
+### Text Commands
 
 - **Greeting**: `hello`, `hi`, `hey`
 - **Time**: `what time is it`, `current date`
 - **Open Apps**: `open notepad`, `open chrome`
 - **Search**: `search python programming`, `find machine learning`
 - **Wikipedia**: `search machine learning on wikipedia`
+- **AI Chat** (with ChatGPT): Any natural language question
 
-### Example Search Commands
+### Voice Features
+
+- **Voice Input**: Click "🎧 Listen" to speak commands
+- **Voice Output**: Toggle "🎙 Voice: On/Off" to hear responses
+- Requires microphone and internet (for Google Speech-to-Text)
+
+### Modes
+
+#### Local Mode (Default)
+
+- Intent-based command routing
+- System control (open apps, run commands)
+- Search integration (Google + Wikipedia)
+- Fast, no API keys needed
+- Limited conversational ability
+
+#### AI Mode (ChatGPT)
+
+- Full ChatGPT integration for open-ended questions
+- Context-aware responses
+- Conversation history support
+- Requires OpenAI API key
+- Better for natural language understanding
+
+## Testing Commands
+
+### Text-Based
 
 ```
-Search: machine learning
-Search: python tutorial
-Search: artificial intelligence
+You: hello
+Jarvis: Hi there. How can I assist you today?
+
+You: what time is it
+Jarvis: The current time is 3:45 PM. Today is Monday, October 12, 2026.
+
+You: open notepad
+Jarvis: Opening notepad.
+
+You: search machine learning
+Jarvis: Found 5 results for 'machine learning'...
 ```
+
+### ChatGPT Mode
+
+```
+You: explain quantum computing
+Jarvis: Quantum computing is a revolutionary form of computing that uses quantum bits...
+
+You: tell me a joke
+Jarvis: Why don't scientists trust atoms? Because they make up everything!
+```
+
+### Voice Mode
+
+1. Toggle "🎙 Voice: On"
+2. Click "🎧 Listen"
+3. Speak your command
+4. Jarvis responds with text and voice
 
 ## Architecture
 
 ```
-┌─────────────────┐
-│  Desktop GUI    │
-│  (Tkinter)      │
-└────────┬────────┘
-         │ HTTP
-         ▼
-┌─────────────────┐
-│  FastAPI Server │
-│  :8000          │
-└────────┬────────┘
-         │
-┌────────▼──────────────────────────┐
-│      Jarvis Assistant             │
-├──────────────────────────────────┤
-│ Intent Detection                 │
-│ System Control                   │
-│ Voice Manager                    │
-│ Search Engine Integration        │
-└──────────────────────────────────┘
+┌────────────────────────────────────────┐
+│       Desktop GUI (Tkinter)             │
+│  ┌──────────────────────────────────┐   │
+│  │ Chat Display & Input              │   │
+│  │ Voice Controls (Listen/Speak)     │   │
+│  │ Mode Toggle (AI/Local)            │   │
+│  │ Status Display                    │   │
+│  └──────────────────────────────────┘   │
+└────────────────────┬──────────────────┘
+                     │ HTTP REST API
+                     ▼
+┌────────────────────────────────────────┐
+│      FastAPI Backend Server             │
+│      (http://127.0.0.1:8000)            │
+│  ┌──────────────────────────────────┐   │
+│  │ /command - Process text           │   │
+│  │ /voice - Speech-to-text           │   │
+│  │ /speak - Text-to-speech           │   │
+│  │ /health - Backend status          │   │
+│  └──────────────────────────────────┘   │
+└────────────────────┬──────────────────┘
+                     │
+      ┌──────────────┼──────────────┐
+      │              │              │
+      ▼              ▼              ▼
+┌──────────┐  ┌──────────┐  ┌──────────┐
+│ Jarvis   │  │ OpenAI   │  │ Search   │
+│ Assistant│  │ ChatGPT  │  │ Engines  │
+│(Local)   │  │ API      │  │(Google + │
+│          │  │          │  │Wikipedia)│
+└──────────┘  └──────────┘  └──────────┘
 ```
 
-## Features
+## Project Structure
 
-✅ Text-based command input
-✅ Web search (Google Custom Search API)
-✅ Wikipedia search (free, no API key)
-✅ System control (open apps, run commands)
-✅ Time and date queries
-✅ Intent-based command routing
-✅ Extensible backend architecture
+```
+jarvis-ai-assistant/
+├── backend/
+│   ├── __init__.py
+│   ├── assistant.py           # Main Jarvis logic
+│   ├── config.py              # Settings
+│   ├── system_controller.py   # OS control
+│   ├── voice_manager.py       # Speech-to-text & TTS
+│   ├── search_engine.py       # Search integration
+│   ├── api/
+│   │   └── server.py          # FastAPI server
+│   └── ai/
+│       ├── intent_model.py    # Intent detection
+│       └── providers.py       # AI providers (Local, OpenAI)
+├── desktop/
+│   └── main.py                # Desktop GUI app
+├── android/                   # Android app (coming soon)
+├── tests/                     # Test suite
+├── requirements.txt           # Python dependencies
+├── .env.example               # Configuration template
+├── SETUP.md                   # This file
+└── README.md                  # Project overview
+```
 
 ## Troubleshooting
 
@@ -132,53 +224,57 @@ Search: artificial intelligence
 ```bash
 pip install -r requirements.txt
 python -m compileall backend
+python -m backend
 ```
 
 ### Desktop App Can't Connect
 
-- Ensure backend is running: `python -m backend`
-- Check status shows "Online" in the app
-- Clear cache: delete `__pycache__` folders
+- Ensure backend is running
+- Check status shows "Online"
+- Try "Test API" button
+- Restart both apps
+
+### ChatGPT Mode Returns Error
+
+- Verify `OPENAI_API_KEY` is set in `.env`
+- Check API key is valid at https://platform.openai.com/account/api-keys
+- Ensure sufficient API credits
+- Check internet connection
+
+### Voice Features Not Working
+
+- Check microphone is connected
+- Test microphone in Windows Sound settings
+- Verify `speechrecognition` package installed
+- Run: `pip install --upgrade speechrecognition pyttsx3 pyaudio`
 
 ### Search Returns No Results
 
 - Google Search requires valid API credentials
 - Wikipedia search should work without credentials
 - Check internet connection
+- Try simpler search terms
 
 ## Next Steps
 
-- Add voice input/output
-- Integrate local AI models
-- Build Android mobile app
-- Add conversation memory
-- Implement wake word detection
-
-## Project Structure
-
-```
-jarvis-ai-assistant/
-├── backend/
-│   ├── __init__.py
-│   ├── assistant.py          # Main assistant logic
-│   ├── config.py             # Settings
-│   ├── system_controller.py  # OS control
-│   ├── voice_manager.py      # Voice I/O
-│   ├── search_engine.py      # Search integration
-│   ├── api/
-│   │   └── server.py         # FastAPI server
-│   └── ai/
-│       ├── intent_model.py
-│       └── providers.py
-├── desktop/
-│   └── main.py               # Desktop GUI
-├── android/                  # Android app
-├── tests/                    # Test suite
-├── requirements.txt
-├── .env.example
-└── README.md
-```
+✅ Text-based commands (working)  
+✅ ChatGPT integration (working)  
+✅ Voice input/output (working)  
+✅ Search integration (working)  
+⏳ Android mobile app  
+⏳ Conversation memory/database  
+⏳ Wake word detection  
+⏳ Advanced automation  
+⏳ Local AI model support (Llama, Mistral)  
 
 ## License
 
 MIT
+
+## Support
+
+For issues or questions:
+- Check SETUP.md Troubleshooting section
+- Review .env configuration
+- Check backend logs
+- Visit GitHub repository for more info
